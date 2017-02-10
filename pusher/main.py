@@ -45,7 +45,7 @@ def error(*args, **kwargs):
 
 
 def get_users(args):
-
+    """Fetch the users from the database"""
     cur = args.db.cursor()
     cur.execute(
         "select * from users where id like '%{}%'".format(args.id))
@@ -53,6 +53,7 @@ def get_users(args):
 
 
 async def drop_user(args, user):
+    """Remove a user from the database"""
     log.info("Dropping no longer valid user: {}".format(user))
     cur = args.db.cursor()
     import pdb;pdb.set_trace()
@@ -60,6 +61,7 @@ async def drop_user(args, user):
 
 
 async def process_user(user, args, headers):
+    """Send a message to a user or drop the user if no longer valid."""
     sub_info = json.loads(user["subinfo"])
     try:
         result = WebPusher(sub_info).send(
@@ -120,7 +122,6 @@ def main(sysargs=None):
         loop.set_debug(enabled=True)
         logging.basicConfig(level=logging.DEBUG)
     loop.run_until_complete(process_users(args, headers))
-
 
 
 if __name__ == '__main__':
