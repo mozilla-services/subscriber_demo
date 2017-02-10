@@ -1,0 +1,5 @@
+aiohttp
+pywebpush
+configargparse
+service_identity
+requests

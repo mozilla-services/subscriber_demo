@@ -1,0 +1,10 @@
+bin/
+include/
+lib/
+share/
+pip-selfcheck.json
+*.pyc
+subscriber_demo.egg-info/
+users.db
+.idea/
+

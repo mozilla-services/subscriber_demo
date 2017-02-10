@@ -1,0 +1,11 @@
+* {padding:0;margin:0;}
+html {font-family:Arial, Helvetica, SansSerif; padding:0 2em; color:#333;}
+h2 {padding-bottom:.5em;}
+p {padding-bottom:.5em;}
+div {padding:1em 0;}
+label {margin-right: .5em;}
+button {font-size:120%;}
+code {font-family:"Courier New", "Courier", Monospaced;display:block; padding:2ox .5em; background-color: #ccc;}
+.hidden {display:none;}
+.tt {font-family: "Courier New", "Courier", Monospaced; background-color: #ccc; padding:.25em 0;}
+.err {border: 1px solid red; padding:.5em; color: red;}
