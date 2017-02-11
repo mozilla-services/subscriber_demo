@@ -7,4 +7,3 @@ from pusher.main import main
 
 
 main(sys.argv[1:])
-

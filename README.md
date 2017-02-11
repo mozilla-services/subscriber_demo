@@ -9,11 +9,11 @@ This demo was written on a Linux box. This means that macs may work
 too, but older installs of Windows might have a harder time of things.
 
 In addition, you'll need to either serve the `./page` directory from your
-local web server or run `bin/topic_server` with enough privileges to
-be able to start a web server at port 80. This is because of a
-restriction enforced by ServiceWorkers. ServiceWorker scripts must either
-be served from a secure server (one that can run `https://` or from
-`localhost`)
+local web server or run `bin/server` and connect to
+`http://localhost:8200`. This is because of a
+restriction enforced by ServiceWorkers. ServiceWorker scripts must
+either be served from a secure server (one that can run `https://` or
+from `localhost`)
 
 
  To get started:
@@ -44,5 +44,5 @@ command:
 To send a message to a specific subscriber, specify that subscriber's
 userID (displayed on the page after registration):
 
-`pusher --msg "This is a test" --id='Abcd1234'
+`pusher --msg "This is a test" --id='Abcd1234`
 

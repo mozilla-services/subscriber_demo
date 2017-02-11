@@ -14,7 +14,14 @@ PAGE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
 
 
 def init_db(db_file):
-    """initialize the database"""
+    """initialize the database
+
+    Configure the database if necessary
+
+    :param db_file: path to the database
+    :type db_file: str
+
+    """
     con = sqlite3.connect(db_file)
     cur = con.cursor()
     cur.executescript('CREATE TABLE IF NOT EXISTS users '
@@ -25,6 +32,11 @@ def init_db(db_file):
 
 def setup(sysargs):
     """Read in the args
+
+    :param sysargs: System arguments
+    :type sysargs: dict
+
+    :returns: the settings object and parser
 
     """
     parser = configargparse.ArgumentParser(
@@ -49,6 +61,83 @@ def setup(sysargs):
     return args, parser
 
 
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET,POST",
+    "Access-Control-Allow-Headers": ",".join(["content-type"]),
+    "Access-Control-Expose-Headers": ",".join(["content-type"])
+}
+
+
+def index(request):
+    """If requested, display the 'index' page.
+
+    Additional processing could be done here. This is more a stub
+    function than anything else.
+
+    :param request: Incoming request object
+    :type request: web.Request
+
+    :returns: a Response containing the index file.
+
+    """
+    file = open(os.path.join(PAGE_PATH, "index.html"), "r")
+    headers = CORS_HEADERS.copy()
+    headers["content-type"] = "text/html"
+    return web.Response(text="".join(file.readlines()),
+                        headers=headers)
+
+
+@asyncio.coroutine
+def store_user(args, user_info):
+    """Store the user subscription data to the database
+
+    :param args: Settings
+    :type args: object
+    :param user_info: Subscription Info block
+    :type user_info: dict
+
+    """
+    db = sqlite3.connect(args.db_path)
+    cur = db.cursor()
+    # if the client didn't send a userid, we'll fake one from the endpoint
+    # because that's what the matching javascript would have done.
+    # You should probably have a real ID tied to a real user record.
+    if "id" not in user_info:
+        user_info["id"] = user_info["endpoint"][-8:]
+    id = str(user_info.pop("id"))
+    cur.execute("insert into users values (?,?)",
+                (id, json.dumps(user_info)))
+    db.commit()
+    db.close()
+
+
+def register(request):
+    """Handle registration POST message
+
+    :param request: Incoming request object
+    :type request: web.Request
+
+    :returns: a Response containing the registration response
+
+    """
+    try:
+        # Extract the JSON body out of the request.
+        body = yield from request.json()
+        if not isinstance(body, dict):
+            raise Exception("body not recognized")
+        yield from store_user(request.app['config'], body)
+    except sqlite3.IntegrityError as ex:
+        log.warning("Already registered. ignoring")
+        return web.Response(text="already registered", status=200)
+    except Exception as e:
+        log.error(
+            "### ERROR: Could not process registration: {}".format(repr(e))
+        )
+        return web.Response(text="Error: {}".format(str(e)), status=500)
+    return web.Response(text="registering", status=201)
+
+
 def main(sysargs=None):
     if not sysargs:
         sysargs = sys.argv[1:]
@@ -69,58 +158,6 @@ def main(sysargs=None):
     web.run_app(app,
                 host='0.0.0.0',
                 port=args.port)
-
-
-CORS_HEADERS = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET,POST",
-    "Access-Control-Allow-Headers": ",".join(["content-type"]),
-    "Access-Control-Expose-Headers": ",".join(["content-type"])
-}
-
-
-def index(request):
-    """If requested, display the 'index' page."""
-    file = open(os.path.join(PAGE_PATH, "index.html"), "r")
-    headers = CORS_HEADERS.copy()
-    headers["content-type"] = "text/html"
-    return web.Response(text="".join(file.readlines()),
-                        headers=headers)
-
-@asyncio.coroutine
-def store_user(config, user_info):
-    """Store the user subscription data to the database"""
-    db = sqlite3.connect(config.db_path)
-    cur = db.cursor()
-    # if the client didn't send a userid, we'll fake one from the endpoint
-    # because that's what the matching javascript would have done.
-    # You should probably have a real ID tied to a real user record.
-    if "id" not in user_info:
-        user_info["id"] = user_info["endpoint"][-8:]
-    id = str(user_info.pop("id"))
-    cur.execute("insert into users values (?,?)",
-                (id, json.dumps(user_info)))
-    db.commit()
-    db.close()
-
-
-def register(request):
-    """Handle registration POST message"""
-    try:
-        # Extract the JSON body out of the request.
-        body = yield from request.json()
-        if not isinstance(body, dict):
-            raise Exception("body not recognized")
-        yield from store_user(request.app['config'], body)
-    except sqlite3.IntegrityError as ex:
-        log.warning("Already registered. ignoring")
-        return web.Response(text="already registered", status=200)
-    except Exception as e:
-        log.error(
-            "### ERROR: Could not process registration: {}".format(repr(e))
-        )
-        return web.Response(text="Error: {}".format(str(e)), status=500)
-    return web.Response(text="registering", status=201)
 
 
 if __name__ == '__main__':

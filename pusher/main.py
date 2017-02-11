@@ -14,6 +14,12 @@ log = logging.Logger(name="pusher")
 def setup(sysargs):
     """Read in the arguments and configure things for startup.
 
+    :param sysargs: List of system arguments
+    :type sysargs: dict
+
+    :returns: an namespace object containing the argument settings
+    :return type: object
+
     """
     parser = configargparse.ArgumentParser(
         default_config_files=["push_server.ini"],
@@ -37,15 +43,21 @@ def setup(sysargs):
     args.db.row_factory = sqlite3.Row
     if args.debug:
         log.setLevel(logging.INFO)
-    return args, parser
-
-
-def error(*args, **kwargs):
-    log.error(*args, **kwargs)
+    return args
 
 
 def get_users(args):
-    """Fetch the users from the database"""
+    """Fetch the users from the database.
+
+    Will fetch all users, unless 'id' is defined, then will attempt to
+    find all matching users. This uses SQL's standard similarity match.
+
+    :param args: settings
+    :type args: object
+
+    :returns: list of sqlite3.Row object containing matching users.
+
+    """
     cur = args.db.cursor()
     cur.execute(
         "select * from users where id like '%{}%'".format(args.id))
@@ -53,25 +65,63 @@ def get_users(args):
 
 
 async def drop_user(args, user):
-    """Remove a user from the database"""
-    log.info("Dropping no longer valid user: {}".format(user))
+    """Remove a user from the database
+
+    :param args: settings
+    :type args: object
+    :param user: UserID to remove
+    :type user: str
+
+    """
+    log.warn("Dropping no longer valid user: {}".format(user))
     cur = args.db.cursor()
-    import pdb;pdb.set_trace()
     cur.execute("delete from users where id=?", (user,))
 
 
 async def process_user(user, args, headers):
-    """Send a message to a user or drop the user if no longer valid."""
+    """Send a message to a user or drop the user if no longer valid.
+
+    :param user: UserID of customer to attempt to send Subscription Update
+    :type user: string
+    :param args: settings
+    :type args: object
+    :param headers: Additional headers to send
+    :type headers: dict
+
+    :returns: UserID of failed sends
+
+    """
     sub_info = json.loads(user["subinfo"])
     try:
         result = WebPusher(sub_info).send(
             args.msg,
             headers=headers,
             ttl=args.ttl)
+        print("Result: {}".format(result.status_code))
         if result.status_code > requests.codes.ok:
             # Remove any users that no longer want updates.
             if result.status_code in [404, 410]:
-                log.error("{} no longer wants updates".format(user["id"]))
+                try:
+                    reply = json.loads(result.text)
+                    reason = reply.get(
+                        "message",
+                        "Unknown reason")
+                    if 'more_info' in reply:
+                        reason += (
+                            "\nFor more info, see: " +
+                            reply['more_info']
+                            )
+                except:
+                    reason = "and couldn't understand {}".format(
+                        result.text
+                        )
+                log.error(
+                    "Failed to send to {}: {}".format(
+                        user["id"],
+                        reason,
+
+                    )
+                )
                 await drop_user(args, user["id"])
                 args.db.commit()
                 return None
@@ -84,12 +134,22 @@ async def process_user(user, args, headers):
 
 
 async def process_users(args, headers):
-    """get the list of users, then process each in it's own thread"""
+    """get the list of users, then process each in it's own thread
+
+    :param args: settings
+    :type args: object
+    :param headers: additional headers to send
+    :type headers: dict
+
+    """
     try:
         # Since this is the data fetch, and the process shouldn't continue
         # without it, block on getting the user list.
         # There are ways to make this faster, but this is just a demo app.
         users = get_users(args)
+        if len(users) == 0:
+            log.error("No users found. No messages being sent.")
+            return
         log.info("Processing message for {} users".format(len(users)))
         # generate the list of future functions to be called by gather.
         futures = [process_user(user, args, headers) for user in users]
@@ -98,7 +158,7 @@ async def process_users(args, headers):
         for result in results:
             if result is not None:
                 print("Removed currently invalid users: {}".format(
-                    ','.join(result)))
+                    result))
     except Exception as x:
         log.error("Could not send message: {}".format(repr(x)))
 
@@ -106,7 +166,7 @@ async def process_users(args, headers):
 def main(sysargs=None):
     if not sysargs:
         sysargs = sys.argv[1:]
-    args, parser = setup(sysargs)
+    args = setup(sysargs)
     headers = {}
     if args.topic:
         if ' ' in args.topic or '"' in args.topic or '"' in args.topic:

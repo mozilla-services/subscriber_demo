@@ -27,7 +27,6 @@
     <p>Or just send to this host:</p>
     <div class="tt">pusher --msg: "Hi, <span class="id"></span>" --id=<span class="id"></span></div>
     <br />
-    <p><!-- button id="unsub">Unsubscribe</button --></p>
 
 </div>
 </body>
@@ -59,7 +58,6 @@
          return navigator.serviceWorker.register("i/sw.js").then(
              function (swr) {
                 console.log("Service worker loaded");
-                window._swr_pm = swr.pushManager;
                 return swr.pushManager.getSubscription()
                  .then(sub => {
                      if (sub) {
@@ -99,7 +97,8 @@
          }
          console.debug("Sending info ", JSON.stringify(sub_info));
          if (sub_info == null) {
-             throw new Error("No subscription info!?");
+           show_err("Could not send subscription. No subscription information?");
+           throw new Error("No subscription info!?");
          }
          return fetch(uri, {
              method: 'POST',
@@ -111,8 +110,8 @@
          })
          .then(function (response) {
              if (!response.ok) {
-                 throw new Error("Server responded with status: " +
-                     response.status);
+               show_err("Server responded with unexpected status: " + response.status);
+                 throw new Error("Server responded with status: " + response.status);
              }
              show_err(null);
              console.debug("Success!");
@@ -120,30 +119,7 @@
          });
     }
 
-    function unsub(){
-        // unsubscribe a subscription endpoint.
-        navigator.serviceWorker.ready.then(reg => {
-            console.debug("ready");
-            reg.pushManager.getSubscription().then( sub=> {
-                console.debug("steady");
-                sub.unsubscribe.then(success => {
-                    // refresh the page.
-                    console.debug("done!");
-                    // A wise developer would also send a notification to
-                    // their backend to indicate that the server shouldn't
-                    // try to send to this endpoint.
-                    document.location = document.location
-                })
-                .catch(err => {console.error("unsubscribe", err)})
-            })
-            .catch(err => {console.err("getSubscription", err)});
-        })
-        .catch(err => {console.err("ready", err)});
-    }
-
-
     document.getElementById("sub").addEventListener("click", register);
-    // document.getElementById("unsub").addEventListener("click", unsub)
 
     // If you want the main page to receive push events from the service worker,
     // you can uncomment the following block
