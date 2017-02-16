@@ -22,12 +22,11 @@ def init_db(db_file):
     :type db_file: str
 
     """
-    con = sqlite3.connect(db_file)
-    cur = con.cursor()
-    cur.executescript('CREATE TABLE IF NOT EXISTS users '
-                      '(id TEXT PRIMARY KEY, subinfo TEXT);')
-    con.commit()
-    con.close()
+    with sqlite3.connect(db_file) as con:
+        cur = con.cursor()
+        cur.executescript('CREATE TABLE IF NOT EXISTS users '
+                          '(id TEXT PRIMARY KEY, subinfo TEXT);')
+        con.commit()
 
 
 def setup(sysargs):
@@ -81,11 +80,11 @@ def index(request):
     :returns: a Response containing the index file.
 
     """
-    file = open(os.path.join(PAGE_PATH, "index.html"), "r")
-    headers = CORS_HEADERS.copy()
-    headers["content-type"] = "text/html"
-    return web.Response(text="".join(file.readlines()),
-                        headers=headers)
+    with open(os.path.join(PAGE_PATH, "index.html"), "r") as file:
+        headers = CORS_HEADERS.copy()
+        headers["content-type"] = "text/html"
+        return web.Response(text="".join(file.readlines()),
+                            headers=headers)
 
 
 @asyncio.coroutine
@@ -98,18 +97,17 @@ def store_user(args, user_info):
     :type user_info: dict
 
     """
-    db = sqlite3.connect(args.db_path)
-    cur = db.cursor()
-    # if the client didn't send a userid, we'll fake one from the endpoint
-    # because that's what the matching javascript would have done.
-    # You should probably have a real ID tied to a real user record.
-    if "id" not in user_info:
-        user_info["id"] = user_info["endpoint"][-8:]
-    id = str(user_info.pop("id"))
-    cur.execute("insert into users values (?,?)",
-                (id, json.dumps(user_info)))
-    db.commit()
-    db.close()
+    with sqlite3.connect(args.db_path) as db:
+        cur = db.cursor()
+        # if the client didn't send a userid, we'll fake one from the endpoint
+        # because that's what the matching javascript would have done.
+        # You should probably have a real ID tied to a real user record.
+        if "id" not in user_info:
+            user_info["id"] = user_info["endpoint"][-8:]
+        id = str(user_info.pop("id"))
+        cur.execute("insert into users values (?,?)",
+                    (id, json.dumps(user_info)))
+        db.commit()
 
 
 def register(request):

@@ -4,6 +4,7 @@ import requests
 import sqlite3
 import logging
 import asyncio
+from functools import partial
 
 import configargparse
 from pywebpush import WebPusher
@@ -93,10 +94,14 @@ async def process_user(user, args, headers):
     """
     sub_info = json.loads(user["subinfo"])
     try:
-        result = WebPusher(sub_info).send(
-            args.msg,
-            headers=headers,
-            ttl=args.ttl)
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            partial(WebPusher(sub_info).send,
+                    args.msg,
+                    headers=headers,
+                    ttl=args.ttl)
+        )
         print("Result: {}".format(result.status_code))
         if result.status_code > requests.codes.ok:
             # Remove any users that no longer want updates.
