@@ -18,7 +18,7 @@ from `localhost`)
 
  To get started:
  ```
-git clone https://github.com/jrconlin/subscriber_demo.git
+git clone https://github.com/mozilla-services/subscriber_demo.git
 cd subscriber_demo
 virtualenv -p python3 .
 bin/activate
